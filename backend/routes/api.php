@@ -4,7 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\InquiryController;
 use App\Http\Controllers\PropertyController;
 use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\DashboardController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -15,6 +15,7 @@ Route::get('/properties/{property}', [PropertyController::class, 'show']);
 Route::middleware('auth:sanctum')->group(function () {
     // Authentication
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/user', [AuthController::class, 'user']);
 
     // Property management
