@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\PropertyResource;
 use App\Models\Property;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class PropertyController extends Controller
@@ -20,13 +21,14 @@ class PropertyController extends Controller
             ])],
             'min_price' => ['sometimes', 'numeric', 'min:0'],
             'max_price' => ['sometimes', 'numeric', 'min:0', 'gte:min_price'],
+            'page' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         $query = Property::with('user')
             ->where('status', 'Available');
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
+            $search = $validated['search'];
 
             $query->where(function ($subquery) use ($search) {
                 $subquery->where('title', 'like', "%{$search}%")
@@ -86,15 +88,22 @@ class PropertyController extends Controller
             'location' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
             'description' => ['required', 'string'],
-            'image' => ['nullable', 'string', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'status' => ['sometimes', Rule::in([
                 'Available',
                 'Unavailable',
             ])],
         ]);
 
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('properties', 'public');
+        }
+
         $property = Property::create([
             ...$validated,
+            'image' => $imagePath,
             'user_id' => $request->user()->id,
             'status' => $validated['status'] ?? 'Available',
         ]);
@@ -120,12 +129,20 @@ class PropertyController extends Controller
             'location' => ['sometimes', 'required', 'string', 'max:255'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0', 'max:99999999.99'],
             'description' => ['sometimes', 'required', 'string'],
-            'image' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'image' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'status' => ['sometimes', 'required', Rule::in([
                 'Available',
                 'Unavailable',
             ])],
         ]);
+
+        if ($request->hasFile('image')) {
+            if ($property->image && !filter_var($property->image, FILTER_VALIDATE_URL)) {
+                Storage::disk('public')->delete($property->image);
+            }
+
+            $validated['image'] = $request->file('image')->store('properties', 'public');
+        }
 
         $property->update($validated);
         $property->load('user');
@@ -136,6 +153,10 @@ class PropertyController extends Controller
     public function destroy(Request $request, Property $property)
     {
         $this->authorizePropertyManagement($request, $property);
+
+        if ($property->image && !filter_var($property->image, FILTER_VALIDATE_URL)) {
+            Storage::disk('public')->delete($property->image);
+        }
 
         $property->delete();
 
