@@ -11,6 +11,17 @@ class PropertyController extends Controller
 {
     public function index(Request $request)
     {
+        $validated = $request->validate([
+            'search' => ['sometimes', 'string', 'max:255'],
+            'type' => ['sometimes', Rule::in([
+                'Boarding House',
+                'Apartment',
+                'Room',
+            ])],
+            'min_price' => ['sometimes', 'numeric', 'min:0'],
+            'max_price' => ['sometimes', 'numeric', 'min:0', 'gte:min_price'],
+        ]);
+
         $query = Property::with('user')
             ->where('status', 'Available');
 
@@ -25,15 +36,15 @@ class PropertyController extends Controller
         }
 
         if ($request->filled('type')) {
-            $query->where('type', $request->input('type'));
+            $query->where('type', $validated['type']);
         }
 
         if ($request->filled('min_price')) {
-            $query->where('price', '>=', $request->input('min_price'));
+            $query->where('price', '>=', $validated['min_price']);
         }
 
         if ($request->filled('max_price')) {
-            $query->where('price', '<=', $request->input('max_price'));
+            $query->where('price', '<=', $validated['max_price']);
         }
 
         $properties = $query
@@ -70,6 +81,7 @@ class PropertyController extends Controller
             'type' => ['required', Rule::in([
                 'Boarding House',
                 'Apartment',
+                'Room',
             ])],
             'location' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
@@ -103,6 +115,7 @@ class PropertyController extends Controller
             'type' => ['sometimes', 'required', Rule::in([
                 'Boarding House',
                 'Apartment',
+                'Room',
             ])],
             'location' => ['sometimes', 'required', 'string', 'max:255'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0', 'max:99999999.99'],
