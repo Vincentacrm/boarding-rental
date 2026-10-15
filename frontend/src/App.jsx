@@ -40,6 +40,11 @@ function App() {
     password_confirmation: '',
   })
 
+  const [inquiryForm, setInquiryForm] = useState({ message: '' })
+  const [inquiryLoading, setInquiryLoading] = useState(false)
+  const [inquiryError, setInquiryError] = useState('')
+  const [inquirySuccess, setInquirySuccess] = useState('')
+
   async function loadProperties(filters = {}) {
     setLoading(true)
     setError('')
@@ -203,7 +208,7 @@ function App() {
 
       setCurrentUser(result.user)
       setAuthMode('')
-      setAuthSuccess(result.message || 'Success!')
+      setAuthSuccess(result.message || 'Successfully signed in!')
 
       setAuthForm({
         name: '',
@@ -244,6 +249,89 @@ function App() {
       setAuthSuccess('You have been logged out.')
       setAuthError('')
       setAuthMode('')
+      setInquiryError('')
+      setInquirySuccess('')
+    }
+  }
+
+  function openProperty(property) {
+    setSelectedProperty(property)
+    setInquiryForm({ message: '' })
+    setInquiryError('')
+    setInquirySuccess('')
+  }
+
+  async function handleInquirySubmit(event) {
+    event.preventDefault()
+    setInquiryError('')
+    setInquirySuccess('')
+
+    if (!currentUser) {
+      openAuth('login')
+      return
+    }
+
+    if (currentUser.role !== 'customer') {
+      setInquiryError(
+        'Only customer accounts can send rental inquiries. Please log in with a customer account.',
+      )
+      return
+    }
+
+    const token = localStorage.getItem('puyanan_token')
+
+    if (!token) {
+      setInquiryError('Your session has expired. Please log in again.')
+      return
+    }
+
+    setInquiryLoading(true)
+
+    try {
+      const response = await fetch(`${API_URL}/inquiries`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          property_id: selectedProperty.id,
+          message: inquiryForm.message.trim(),
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('puyanan_token')
+          localStorage.removeItem('puyanan_user')
+          setCurrentUser(null)
+        }
+
+        const validationMessages = result.errors
+          ? Object.values(result.errors).flat().join(' ')
+          : result.message
+
+        throw new Error(
+          validationMessages || 'Unable to send your rental inquiry.',
+        )
+      }
+
+      setInquiryForm({ message: '' })
+      setInquirySuccess(
+        result.message ||
+          'Your rental inquiry has been sent successfully! Its status is Pending.',
+      )
+    } catch (err) {
+      setInquiryError(
+        err.message === 'Failed to fetch'
+          ? 'Cannot connect to Laravel. Please check your connection and try again.'
+          : err.message,
+      )
+    } finally {
+      setInquiryLoading(false)
     }
   }
 
@@ -521,7 +609,7 @@ function App() {
                     )}
                     <span className="property-type">{property.type}</span>
                     <span className="available-badge">
-                      <span className="live-dot" /> Available
+                      <span className="live-dot" /> {property.status || 'Available'}
                     </span>
                   </div>
 
@@ -539,7 +627,7 @@ function App() {
                       <button
                         className="details-button"
                         type="button"
-                        onClick={() => setSelectedProperty(property)}
+                        onClick={() => openProperty(property)}
                       >
                         View details <span>↗</span>
                       </button>
@@ -604,6 +692,7 @@ function App() {
             >
               ×
             </button>
+
             <span className="section-kicker">PROPERTY DETAILS</span>
             <h2 id="modal-title">{selectedProperty.title}</h2>
             <p className="modal-location">⌖ {selectedProperty.location}</p>
@@ -621,11 +710,94 @@ function App() {
             </div>
             <div className="modal-detail-row">
               <span>Availability</span>
-              <strong className="status-available">{selectedProperty.status}</strong>
+              <strong className="status-available">
+                {selectedProperty.status || 'Available'}
+              </strong>
             </div>
-            <p className="modal-notice">
-              Rental inquiries will be available once customer accounts are connected.
-            </p>
+
+            {selectedProperty.status === 'Unavailable' ? (
+              <div className="inquiry-notice">
+                This property is currently unavailable for rental inquiries.
+              </div>
+            ) : currentUser?.role === 'customer' ? (
+              <div className="inquiry-section">
+                <div className="modal-divider" />
+                <span className="section-kicker">INTERESTED IN THIS PLACE?</span>
+                <h3>Send a rental inquiry</h3>
+                <p className="inquiry-description">
+                  Introduce yourself and let the property owner know you are interested.
+                </p>
+
+                {inquiryError && (
+                  <div className="message error-message" role="alert">
+                    {inquiryError}
+                  </div>
+                )}
+
+                {inquirySuccess && (
+                  <div className="message inquiry-success" role="status">
+                    <strong>Inquiry sent!</strong>
+                    <span>{inquirySuccess}</span>
+                  </div>
+                )}
+
+                <form className="inquiry-form" onSubmit={handleInquirySubmit}>
+                  <div className="filter-field">
+                    <label htmlFor="inquiry-message">YOUR MESSAGE</label>
+                    <textarea
+                      id="inquiry-message"
+                      rows={4}
+                      minLength={10}
+                      maxLength={2000}
+                      required
+                      value={inquiryForm.message}
+                      onChange={(event) =>
+                        setInquiryForm({ message: event.target.value })
+                      }
+                      placeholder="Hello, I am interested in this property. May I know if it is still available?"
+                    />
+                    <small className="inquiry-counter">
+                      {inquiryForm.message.length}/2000 characters (minimum 10)
+                    </small>
+                  </div>
+
+                  <button
+                    className="search-button inquiry-submit"
+                    type="submit"
+                    disabled={inquiryLoading}
+                  >
+                    {inquiryLoading ? 'Sending inquiry...' : 'Send inquiry ↗'}
+                  </button>
+                </form>
+              </div>
+            ) : currentUser ? (
+              <div className="inquiry-notice">
+                You are logged in as a {currentUser.role}. Rental inquiries can only be sent from a customer account.
+              </div>
+            ) : (
+              <div className="inquiry-guest">
+                <p className="inquiry-description">
+                  Interested in this property? Log in or create a customer account to contact the owner.
+                </p>
+                <div className="inquiry-auth-actions">
+                  <button
+                    className="search-button"
+                    type="button"
+                    onClick={() => openAuth('login')}
+                  >
+                    Log in to inquire
+                  </button>
+                  <button
+                    className="reset-button"
+                    type="button"
+                    onClick={() => openAuth('register')}
+                  >
+                    Create account
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               className="search-button modal-done"
               type="button"
@@ -639,7 +811,7 @@ function App() {
 
       {authMode && (
         <div
-          className="modal-backdrop"
+          className="modal-backdrop auth-backdrop"
           role="presentation"
           onClick={closeAuth}
         >

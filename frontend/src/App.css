@@ -1539,3 +1539,109 @@
     bottom: 16px;
   }
 }
+
+/* Rental inquiry form */
+.inquiry-section {
+  margin-top: 22px;
+}
+
+.inquiry-section h3 {
+  margin: 10px 0 6px;
+  font-size: 1.2rem;
+}
+
+.inquiry-description {
+  margin: 0 0 16px;
+  color: #6b716b;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.inquiry-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.inquiry-form textarea {
+  display: block;
+  width: 100%;
+  min-height: 110px;
+  padding: 12px 14px;
+  border: 1px solid #dedfd7;
+  border-radius: 10px;
+  background: #fff;
+  color: #27352b;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.inquiry-form textarea:focus {
+  outline: 2px solid #a9bba5;
+  outline-offset: 1px;
+  border-color: #718a70;
+}
+
+.inquiry-counter {
+  display: block;
+  margin-top: 6px;
+  color: #777d76;
+  font-size: 0.78rem;
+}
+
+.inquiry-submit {
+  width: 100%;
+}
+
+.inquiry-success {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid #b8d8bd;
+  border-radius: 10px;
+  background: #eff8ef;
+  color: #285d35;
+  line-height: 1.5;
+}
+
+.inquiry-notice {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #e5d8b8;
+  border-radius: 10px;
+  background: #fff9eb;
+  color: #705522;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.inquiry-guest {
+  margin-top: 20px;
+}
+
+.inquiry-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.inquiry-auth-actions .search-button,
+.inquiry-auth-actions .reset-button {
+  flex: 1;
+}
+
+.auth-backdrop {
+  z-index: 1001;
+}
+
+.property-modal {
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
