@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import './App.css'
 
@@ -19,6 +18,27 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedProperty, setSelectedProperty] = useState(null)
+
+  const [authMode, setAuthMode] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [authSuccess, setAuthSuccess] = useState('')
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('puyanan_user')
+      return savedUser ? JSON.parse(savedUser) : null
+    } catch {
+      return null
+    }
+  })
+
+  const [authForm, setAuthForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+  })
 
   async function loadProperties(filters = {}) {
     setLoading(true)
@@ -58,46 +78,43 @@ function App() {
     }
   }
 
-useEffect(() => {
-  const controller = new AbortController()
+  useEffect(() => {
+    const controller = new AbortController()
 
-  async function fetchProperties() {
-    setLoading(true)
-    setError('')
+    async function fetchProperties() {
+      try {
+        const response = await fetch(`${API_URL}/properties`, {
+          headers: {
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        })
 
-    try {
-      const response = await fetch(`${API_URL}/properties`, {
-        headers: {
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      })
+        if (!response.ok) {
+          throw new Error('Unable to load property listings.')
+        }
 
-      if (!response.ok) {
-        throw new Error('Unable to load property listings.')
-      }
-
-      const result = await response.json()
-      setProperties(result.data || [])
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setError(
-          err.message === 'Failed to fetch'
-            ? 'Cannot connect to the server. Make sure Laravel is running.'
-            : err.message,
-        )
-      }
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false)
+        const result = await response.json()
+        setProperties(result.data || [])
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setError(
+            err.message === 'Failed to fetch'
+              ? 'Cannot connect to the server. Make sure Laravel is running.'
+              : err.message,
+          )
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
     }
-  }
 
-  fetchProperties()
+    fetchProperties()
 
-  return () => controller.abort()
-}, [])
+    return () => controller.abort()
+  }, [])
 
   function handleSearch(event) {
     event.preventDefault()
@@ -122,6 +139,114 @@ useEffect(() => {
     loadProperties()
   }
 
+  function openAuth(mode) {
+    setAuthMode(mode)
+    setAuthError('')
+    setAuthSuccess('')
+    setAuthForm({
+      name: '',
+      email: '',
+      password: '',
+      password_confirmation: '',
+    })
+  }
+
+  function closeAuth() {
+    setAuthMode('')
+    setAuthError('')
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault()
+    setAuthError('')
+    setAuthSuccess('')
+
+    if (
+      authMode === 'register' &&
+      authForm.password !== authForm.password_confirmation
+    ) {
+      setAuthError('Passwords do not match.')
+      return
+    }
+
+    setAuthLoading(true)
+
+    try {
+      const response = await fetch(`${API_URL}/${authMode}`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(
+          authMode === 'register'
+            ? authForm
+            : {
+                email: authForm.email,
+                password: authForm.password,
+              },
+        ),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        const validationMessages = result.errors
+          ? Object.values(result.errors).flat().join(' ')
+          : result.message
+
+        throw new Error(validationMessages || 'Authentication failed.')
+      }
+
+      localStorage.setItem('puyanan_token', result.token)
+      localStorage.setItem('puyanan_user', JSON.stringify(result.user))
+
+      setCurrentUser(result.user)
+      setAuthMode('')
+      setAuthSuccess(result.message || 'Success!')
+
+      setAuthForm({
+        name: '',
+        email: '',
+        password: '',
+        password_confirmation: '',
+      })
+    } catch (err) {
+      setAuthError(
+        err.message === 'Failed to fetch'
+          ? 'Cannot connect to Laravel. Make sure the backend server is running.'
+          : err.message,
+      )
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function handleLogout() {
+    const token = localStorage.getItem('puyanan_token')
+
+    try {
+      if (token) {
+        await fetch(`${API_URL}/logout`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+      }
+    } catch {
+      // Clear the local session even if the server is unavailable.
+    } finally {
+      localStorage.removeItem('puyanan_token')
+      localStorage.removeItem('puyanan_user')
+      setCurrentUser(null)
+      setAuthSuccess('You have been logged out.')
+      setAuthError('')
+      setAuthMode('')
+    }
+  }
+
   return (
     <div className="app">
       <header className="navbar">
@@ -138,7 +263,39 @@ useEffect(() => {
           <a href="#about">About</a>
         </nav>
 
-        <a className="nav-cta" href="#listings">Explore rentals <span>↗</span></a>
+        <div className="nav-account">
+          {currentUser ? (
+            <>
+              <span className="account-name">
+                Hi, {currentUser.name.split(' ')[0]}
+              </span>
+              <button
+                className="account-button"
+                type="button"
+                onClick={handleLogout}
+              >
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="account-button"
+                type="button"
+                onClick={() => openAuth('login')}
+              >
+                Log in
+              </button>
+              <button
+                className="nav-cta"
+                type="button"
+                onClick={() => openAuth('register')}
+              >
+                Create account
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       <main>
@@ -205,15 +362,24 @@ useEffect(() => {
         <section className="trust-strip">
           <div>
             <span className="trust-icon">⌂</span>
-            <span><strong>Local listings</strong><small>Focused on Tubigon</small></span>
+            <span>
+              <strong>Local listings</strong>
+              <small>Focused on Tubigon</small>
+            </span>
           </div>
           <div>
             <span className="trust-icon">⌕</span>
-            <span><strong>Easy discovery</strong><small>Search your way</small></span>
+            <span>
+              <strong>Easy discovery</strong>
+              <small>Search your way</small>
+            </span>
           </div>
           <div>
             <span className="trust-icon">♡</span>
-            <span><strong>Your next home</strong><small>One step at a time</small></span>
+            <span>
+              <strong>Your next home</strong>
+              <small>One step at a time</small>
+            </span>
           </div>
         </section>
 
@@ -325,7 +491,9 @@ useEffect(() => {
             <div className="empty-state">
               <span className="empty-icon">⌂</span>
               <h3>No matching spaces yet</h3>
-              <p>Try a different keyword or clear your filters to see more listings.</p>
+              <p>
+                Try a different keyword or clear your filters to see more listings.
+              </p>
               <button className="search-button" type="button" onClick={resetFilters}>
                 Clear filters
               </button>
@@ -406,7 +574,10 @@ useEffect(() => {
       <footer className="footer">
         <a className="brand footer-brand" href="#">
           <span className="brand-icon">P</span>
-          <span><strong>puy-anan</strong><small>YOUR PLACE IN TUBIGON</small></span>
+          <span>
+            <strong>puy-anan</strong>
+            <small>YOUR PLACE IN TUBIGON</small>
+          </span>
         </a>
         <span>Find your space. Feel at home.</span>
         <span>© 2026 Puy-anan Rental Listings</span>
@@ -463,6 +634,160 @@ useEffect(() => {
               Back to listings
             </button>
           </section>
+        </div>
+      )}
+
+      {authMode && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onClick={closeAuth}
+        >
+          <section
+            className="property-modal auth-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              type="button"
+              aria-label="Close authentication"
+              onClick={closeAuth}
+            >
+              ×
+            </button>
+
+            <span className="section-kicker">WELCOME TO PUY-ANAN</span>
+            <h2 id="auth-title">
+              {authMode === 'register' ? 'Create your account' : 'Welcome back'}
+            </h2>
+            <p className="auth-description">
+              {authMode === 'register'
+                ? 'Create an account to start exploring rental opportunities.'
+                : 'Log in to continue to your account.'}
+            </p>
+
+            {authError && (
+              <div className="message error-message" role="alert">
+                {authError}
+              </div>
+            )}
+
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              {authMode === 'register' && (
+                <div className="filter-field">
+                  <label htmlFor="auth-name">FULL NAME</label>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    autoComplete="name"
+                    maxLength={255}
+                    required
+                    value={authForm.name}
+                    onChange={(event) =>
+                      setAuthForm({ ...authForm, name: event.target.value })
+                    }
+                    placeholder="Enter your full name"
+                  />
+                </div>
+              )}
+
+              <div className="filter-field">
+                <label htmlFor="auth-email">EMAIL ADDRESS</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={authForm.email}
+                  onChange={(event) =>
+                    setAuthForm({ ...authForm, email: event.target.value })
+                  }
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div className="filter-field">
+                <label htmlFor="auth-password">PASSWORD</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  autoComplete={
+                    authMode === 'register' ? 'new-password' : 'current-password'
+                  }
+                  minLength={8}
+                  required
+                  value={authForm.password}
+                  onChange={(event) =>
+                    setAuthForm({ ...authForm, password: event.target.value })
+                  }
+                  placeholder="At least 8 characters"
+                />
+              </div>
+
+              {authMode === 'register' && (
+                <div className="filter-field">
+                  <label htmlFor="auth-confirm-password">CONFIRM PASSWORD</label>
+                  <input
+                    id="auth-confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                    value={authForm.password_confirmation}
+                    onChange={(event) =>
+                      setAuthForm({
+                        ...authForm,
+                        password_confirmation: event.target.value,
+                      })
+                    }
+                    placeholder="Enter your password again"
+                  />
+                </div>
+              )}
+
+              <button
+                className="search-button auth-submit"
+                type="submit"
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? 'Please wait...'
+                  : authMode === 'register'
+                    ? 'Create account'
+                    : 'Log in'}
+              </button>
+            </form>
+
+            <p className="auth-switch">
+              {authMode === 'register'
+                ? 'Already have an account?'
+                : "Don't have an account?"}{' '}
+              <button
+                type="button"
+                onClick={() =>
+                  openAuth(authMode === 'register' ? 'login' : 'register')
+                }
+              >
+                {authMode === 'register' ? 'Log in' : 'Register'}
+              </button>
+            </p>
+          </section>
+        </div>
+      )}
+
+      {authSuccess && (
+        <div className="auth-toast" role="status">
+          {authSuccess}
+          <button
+            type="button"
+            aria-label="Dismiss message"
+            onClick={() => setAuthSuccess('')}
+          >
+            ×
+          </button>
         </div>
       )}
     </div>

@@ -1407,3 +1407,135 @@
     transition-duration: 0.01ms !important;
   }
 }
+.nav-account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.account-name {
+  color: var(--text, #26352d);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-button {
+  border: 1px solid #dce4dc;
+  background: #fff;
+  color: #26352d;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-button:hover {
+  background: #f2f6f1;
+}
+
+.auth-description {
+  color: #68766d;
+  margin: 10px 0 22px;
+  line-height: 1.6;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.auth-form .filter-field {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid #dce4dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #26352d;
+  font: inherit;
+  font-size: 14px;
+}
+
+.auth-form input:focus {
+  outline: 2px solid #b5d0b8;
+  border-color: #6b9472;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.auth-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.auth-switch {
+  margin-top: 20px;
+  color: #68766d;
+  text-align: center;
+  font-size: 14px;
+}
+
+.auth-switch button {
+  border: 0;
+  background: transparent;
+  color: #376d4c;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100vw - 32px);
+  padding: 14px 18px;
+  border: 1px solid #d5e6d6;
+  border-radius: 10px;
+  background: #f1f8f0;
+  color: #285b37;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 10%);
+}
+
+.auth-toast button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .nav-account {
+    gap: 6px;
+  }
+
+  .account-name {
+    display: none;
+  }
+
+  .account-button {
+    padding: 9px 10px;
+  }
+
+  .auth-toast {
+    right: 16px;
+    bottom: 16px;
+  }
+}
